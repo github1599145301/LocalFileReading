@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>本地文件显示、播放</title>
+</head>
+<body>
+    <button>打开文件夹/文件</button>
+    <script type="text/javascript">
+        const oBtn = document.querySelector('button');
+        oBtn.onclick = async function(){
+            //判断 是否支持 
+            if(!window.showDirectoryPicker){
+                alert('该浏览器不支持');
+                return;
+            }
+            //调用方法
+            const handle = await window.showDirectoryPicker();
+            processHandle(handle);
+            console.log(handle);
+            /*
+             * 导入文件名称
+             * 点击 音视频播放
+             * 点击文本文件展示，{‘html’，‘js’,'txt'}
+             * word、excel、pdf、图片显示
+            */
+
+        };
+
+        //处理方法
+        async function processHandle(handle){
+            if( handle.kind === 'file'){
+                return;
+            }
+            handle.children = [];
+            const iter = await handle.entries();
+            for await ( const entry of iter ){
+                await processHandle(entry[1]);
+                handle.children.push(entry[1]);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>本地文件显示、播放</title>
+    <link rel="stylesheet" href="css/index.css" />
+    <script src="js/iconfont.js"></script>
+    <style>
+        @font-face {
+            font-family: 'MiSans';
+            src: url('font/MiSans-Regular.ttf') format('truetype');
+        }
+        body{
+            font-family: 'MiSans';
+            font-weight: 500;
+        }
+        .icon {
+            width: 24px;
+            height: 24px;
+            vertical-align: -0.15em;
+            fill: currentColor;
+            overflow: hidden;
+            margin: auto;
+            color: rgb(134, 134, 134);
+        }
+        textarea:focus-visible, textarea:focus{
+            outline: 1px solid #0078d4;
+        }
+        textarea::placeholder{
+            opacity: 0;
+        }
+        textarea:focus::placeholder{
+            opacity: 1;
+        }
+        ::-webkit-scrollbar{
+            width: 6px;
+        }
+        ::-webkit-scrollbar-corner {
+            display: none;
+        }
+        ::-webkit-scrollbar-track {
+            background-color: rgb(31,31,31);
+        }
+        ::-webkit-scrollbar-thumb{
+            border-radius: 6px;
+            background-color: #0078d4;
+        }
+        ::-webkit-scrollbar:horizontal{
+            height: 5px;
+        }
+    </style>  
+</head>
+<body>
+    <div style="left: 0;width: 48px;" class="menubar">
+        <ul>
+            <li title="文件管理" class="selected" data-value="file">
+                <svg class="icon" aria-hidden="true">
+                    <use xlink:href="#icon-wenjianguanli"></use>
+                </svg>
+            </li>
+            <li title="搜索" data-value="search">
+                <svg class="icon" aria-hidden="true">
+                    <use xlink:href="#icon-sousuo"></use>
+                </svg>
+            </li>
+            <li title="历史记录" data-value="history">
+                <svg class="icon" aria-hidden="true">
+                    <use xlink:href="#icon-lishi"></use>
+                </svg>
+            </li>
+        </ul>
+    </div>
+    <div style="width: 300px; border-right: 1px solid rgb(43, 43, 43);left: 48px;display: flex;flex-direction: column;">
+        <div class="tab visible" data-value="file">
+            <div id="" style="display: flex; flex-direction: column; width: inherit;height: inherit;">
+                <div class="title">
+                    <h2 title="文件管理器">文件管理器</h2>
+                </div>
+                <div id="file-panel" class="wordspace" style="height: initial;max-height: inherit;overflow: auto;">
+                    <!--TODO Tree展示--> 
+                </div>
+                <p id="none-tip" style="font-size: 13px; color: #cccccc;margin:0 0 0 20px;" >尚未打开文件夹。</p>
+                <button id="open">打开文件夹</button>
+            </div>
+        </div>
+        <div class="tab" data-value="search" >
+            <div style="display: flex; flex-direction: column; width: inherit;height: inherit;">
+                <div class="title">
+                    <h2 title="搜索">搜索</h2>
+                </div>
+                <div id="search-panel" class="wordspace">
+                   <textarea placeholder="搜索（使用回车键（←┘）查看结果）" id="words"></textarea>
+                    <div class="header">
+                        <h3 style="font-weight: 500;">包含的文件</h3>
+                    </div>
+                    <textarea id="include" placeholder="例如：*.mp4" ></textarea>
+                    <div class="header">
+                        <h3 style="font-weight: 500;">排除的文件</h3>
+                    </div>
+                    <textarea id="uninclude" placeholder="例如*.mp4"></textarea>
+                    <!--TODO --Tree展示--> 
+                    <ul class="tree search-tree"></ul>
+                </div>
+                
+            </div>
+        </div>
+        <div class="tab" data-value="history">
+            <div style="display: flex; flex-direction: column; width: inherit;height: inherit;">
+                <div class="title">
+                    <h2 title="历史记录">历史记录</h2>
+                </div>
+                <div id="history-panel" class="wordspace">
+                   <!--TODO Tree 展示-->
+                   <ul class="tree history-tree"></ul>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+    <div style="background-color: rgb(31, 31, 31); width: calc(100% - 348px); left: 348px; color: #ffffff;overflow: auto;" id="content">
+    </div>
+    <script type="module" src="js/index.js"></script>
+    <script type="text/template" id="panel-content">
+        <!--可伸缩面板-->
+        <div class="panel" data-value="{$value}">
+            <div class="header" data-value='panel-header'>
+                <img class="panel-icon" src="img/panel-icon.png" />
+                <h3>{$name}</h3>
+            </div>
+            <!--高度重新计算-->
+            <div class="content" style="height: {$height};">
+                <ul class="tree file-tree-{$value}"></ul>
+            </div>
+        </div>
+    </script>
+    <script type="module">
+        import * as indexDB from '../js/db.js';
+        import {hide_oBtn, show_oBtn} from '../js/index.js';
+        let sel = "file"; // 当前展示
+        const db = new indexDB();
+        // 应用按钮切换
+        const oLis = document.querySelectorAll('.menubar ul li');
+        oLis.forEach((item,index)=>{
+            item.onclick = function(){
+                if( item.dataset.value == sel){
+                    return;
+                }
+                const menu = document.querySelector('li[data-value="'+sel+'"]');
+                menu.classList.remove('selected');
+                item.classList.add('selected');
+                sel = item.dataset.value;
+                document.querySelector('.tab.visible').classList.remove('visible');
+                document.querySelector('.tab[data-value="'+sel+'"]').classList.add('visible');
+                if( sel === "search"){
+                    document.getElementById('words').focus();
+                }else if( sel === 'history' ){
+                    // 判断数据已经加载
+                    
+                    db.READALL(function(data){
+                        //TODO  填充Tree
+                    });
+                }
+            }
+        });
+        // 监听 ctrl+enter 键
+        const words = document.getElementById('words');
+        words.addEventListener('keydown',function(e){
+            if( e.ctrlKey && e.keyCode === 13){
+                const word = words.value;
+                const include = document.getElementById('include').value;
+                const uninclude = document.getElementById('uninclude').value;
+                // 从 indexedDB  获取数据
+                const result = db.REQUEST(word,include,uninclude,function(data){
+                    // TODO 填充Tree
+                });
+                
+            }
+        })
+        //字典
+        let map = new Map();
+        /*
+         * 面板伸缩
+         * 伸：1，缩：0 
+        */
+        function panel_contract(item){
+            const state = map.get(item.dataset.value);
+            const img = item.querySelector('img');
+            const node = item.nextElementSibling;
+            if( state === undefined || state === 1){
+                // 缩
+                img.style.transform = 'rotate(-90deg)';
+                node.classList.add('hidden');
+                map.set(item.dataset.value,0);
+                show_oBtn(null);
+                //下边框设置颜色
+                item.style.borderBottom = '1px solid rgb(43,43,43)';
+            }else{
+                // 伸
+                img.style.transform = 'rotate(0deg)';
+                node.classList.remove('hidden');
+                map.set(item.dataset.value,1);
+                hide_oBtn(null);
+                //下边框去掉颜色
+                item.style.borderBottom = 'none';
+            }
+        }
+        // 监听文件管理器
+        const filePanel = document.getElementById('file-panel');
+        filePanel.addEventListener('click',function(e){
+            const value = e.target.dataset.value;
+            // TODO 监听点击 Tree 节点
+            switch(value){
+                case 'panel-header': panel_contract(e.target); break;
+            }
+        })
+    </script>
+</body>
+</html>
